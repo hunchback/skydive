@@ -84,6 +84,16 @@ func (q QueryString) Has(list ...interface{}) QueryString {
 	return q.Append(")")
 }
 
+// Flows append a Flows() operation to query
+func (q QueryString) Flows() QueryString {
+	return q.Append(".Flows()")
+}
+
+// Sort append a Sort() operation to query
+func (q QueryString) Sort() QueryString {
+	return q.Append(".Sort()")
+}
+
 // ValueString a value used within query constructs
 type ValueString string
 
