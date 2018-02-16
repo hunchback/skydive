@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 IBM, Inc.
+ * Copyright (C) 2018 Skydive-Project Authors.
  *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -53,116 +53,140 @@ func (v QueryString) String() string {
 const G = QueryString("G")
 
 // Append appends string value to query
-func (q QueryString) Append(s string) QueryString {
+func (q QueryString) append(s string) QueryString {
 	return QueryString(q.String() + s)
+}
+
+func (q QueryString) command(name string, list ...interface{}) QueryString {
+	q = q.append(fmt.Sprintf(".%s(", name))
+	first := true
+	for _, v := range list {
+		if !first {
+			q = q.append(", ")
+		}
+		first = false
+		q = q.append(NewValueStringFromArgument(v).String())
+	}
+	return q.append(")")
+}
+
+// Aggregates append a Aggregates() operation to query
+func (q QueryString) Aggregates() QueryString {
+	return q.command("Aggregates")
+}
+
+// At append a At() operation to query
+func (q QueryString) At(list ...interface{}) QueryString {
+	return q.command("At", list...)
+}
+
+// Both append a Both() operation to query
+func (q QueryString) Both() QueryString {
+	return q.command("Both")
+}
+
+// BPF append a PBF() operation to query
+func (q QueryString) BPF(list ...interface{}) QueryString {
+	return q.command("BPF", list)
+}
+
+// CaptureNode append a CaptureNode() operation to query
+func (q QueryString) CaptureNode() QueryString {
+	return q.command("CaptureNode")
 }
 
 // Append a Context() operation to query
 func (q QueryString) Context(list ...interface{}) QueryString {
-	newQ := q.Append(".Context(")
+	newQ := q.append(".Context(")
 	first := true
 	for _, v := range list {
 		if !first {
-			newQ = newQ.Append(", ")
+			newQ = newQ.append(", ")
 		}
 		switch v := v.(type) {
 		case time.Time:
 			if v.IsZero() {
 				return q
 			}
-			newQ = newQ.Append(fmt.Sprintf("%d", common.UnixMillis(v)))
+			newQ = newQ.append(fmt.Sprintf("%d", common.UnixMillis(v)))
 		case int:
-			newQ = newQ.Append(fmt.Sprintf("%d", v))
+			newQ = newQ.append(fmt.Sprintf("%d", v))
 		}
 	}
-	return newQ.Append(")")
+	return newQ.append(")")
 }
 
-// V append a V() operation to query
-func (q QueryString) V() QueryString {
-	return q.Append(".V()")
+// Count append a Count() operation to query
+func (q QueryString) Count() QueryString {
+	return q.command("Count")
+}
+
+// Dedup append a Dedup() operation to query
+func (q QueryString) Dedup() QueryString {
+	return q.command("Dedup")
+}
+
+// Flows append a Flows() operation to query
+func (q QueryString) Flows(list ...interface{}) QueryString {
+	return q.command("Flows", list...)
 }
 
 // Has append a Has() operation to query
 func (q QueryString) Has(list ...interface{}) QueryString {
-	q = q.Append(".Has(")
-	first := true
-	for _, v := range list {
-		if !first {
-			q = q.Append(", ")
-		}
-		first = false
-		q = q.Append(NewValueStringFromArgument(v).String())
-	}
-	return q.Append(")")
+	return q.command("Has", list...)
 }
 
-// Flows append a Flows() operation to query
-func (q QueryString) Flows() QueryString {
-	return q.Append(".Flows()")
+// HasKey append a HasKey() operation to query
+func (q QueryString) HasKey(v interface{}) QueryString {
+	return q.command("HasKey", v)
+}
+
+// Hops append a Hops() operation to query
+func (q QueryString) Hops() QueryString {
+	return q.command("Hops")
+}
+
+// In append a In() operation to query
+func (q QueryString) In() QueryString {
+	return q.command("In")
+}
+
+// Metrics append a Metrics() operation to query
+func (q QueryString) Metrics() QueryString {
+	return q.command("Metrics")
+}
+
+// RawPackets append a RawPackets() operation to query
+func (q QueryString) RawPackets() QueryString {
+	return q.command("RawPackets")
+}
+
+// ShortestPathTo append a ShortestPathTo() operation to query
+func (q QueryString) ShortestPathTo(list ...interface{}) QueryString {
+	return q.command("ShortestPathTo", list)
 }
 
 // Sort append a Sort() operation to query
-func (q QueryString) Sort() QueryString {
-	return q.Append(".Sort()")
+func (q QueryString) Sort(list ...interface{}) QueryString {
+	return q.command("Sort", list)
 }
 
-// ValueString a value used within query constructs
-type ValueString string
-
-// NewValueStringFromArgument via inferance creates a correct ValueString
-func NewValueStringFromArgument(v interface{}) ValueString {
-	switch v := v.(type) {
-	case ValueString:
-		return v
-	case string:
-		return Quote(v)
-	default:
-		panic("argument type not supported")
-	}
+// Sum append a Sum() operation to query
+func (q QueryString) Sum(list ...interface{}) QueryString {
+	return q.command("Sum", list)
 }
 
-// String converts value to string
-func (v ValueString) String() string {
-	return string(v)
+// Nodes append a Nodes() operation to query
+func (q QueryString) Nodes() QueryString {
+	return q.command("Nodes")
 }
 
-// Quote used to quote string values as needed by query
-func (v ValueString) Quote() ValueString {
-	return ValueString(fmt.Sprintf(`"%s"`, v))
+// Out append a Out() operation to query
+func (q QueryString) Out() QueryString {
+	return q.command("Out")
 }
 
-// Regex used for constructing a regexp expression string
-func (v ValueString) Regex() ValueString {
-	return ValueString(fmt.Sprintf("Regex(%s)", v.Quote()))
-}
-
-// StartsWith construct a regexp representing all that start with string
-func (v ValueString) StartsWith() ValueString {
-	return ValueString(fmt.Sprintf("%s.*", v)).Regex()
-}
-
-// EndsWith construct a regexp representing all that end with string
-func (v ValueString) EndsWith() ValueString {
-	return ValueString(fmt.Sprintf(".*%s", v)).Regex()
-}
-
-// Quote used to quote string values as needed by query
-func Quote(s string) ValueString {
-	return ValueString(s).Quote()
-}
-
-// Regex used for constructing a regexp expression string
-func Regex(s string) ValueString {
-	return ValueString(s).Regex()
-}
-
-// StartsWith construct a regexp representing all that start with string
-func StartsWith(s string) ValueString {
-	return ValueString(s).StartsWith()
-}
-
-// EndsWith construct a regexp representing all that end with string
-func EndsWith(s string) ValueString {
-	return ValueString(s).EndsWith()
+// V append a V() operation to query
+func (q QueryString) V(list ...interface{}) QueryString {
+	return q.command("V", list)
 }
