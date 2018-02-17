@@ -32,6 +32,18 @@ import (
 // QueryString used to construct string representation of query
 type QueryString string
 
+// NewValueStringFromArgument via inferance creates a correct ValueString
+func NewQueryStringFromArgument(v interface{}) QueryString {
+	switch v := v.(type) {
+	case QueryString:
+		return v
+	case string:
+		return QueryString(v)
+	default:
+		panic("argument type not supported")
+	}
+}
+
 // String converts value to string
 func (v QueryString) String() string {
 	return string(v)
@@ -59,7 +71,7 @@ func (q QueryString) V() QueryString {
 }
 
 // Has append a Has() operation to query
-func (q QueryString) Has(list ...ValueString) QueryString {
+func (q QueryString) Has(list ...interface{}) QueryString {
 	q = q.Append(".Has(")
 	first := true
 	for _, v := range list {
@@ -67,13 +79,25 @@ func (q QueryString) Has(list ...ValueString) QueryString {
 			q = q.Append(", ")
 		}
 		first = false
-		q = q.Append(v.String())
+		q = q.Append(NewValueStringFromArgument(v).String())
 	}
 	return q.Append(")")
 }
 
 // ValueString a value used within query constructs
 type ValueString string
+
+// NewValueStringFromArgument via inferance creates a correct ValueString
+func NewValueStringFromArgument(v interface{}) ValueString {
+	switch v := v.(type) {
+	case ValueString:
+		return v
+	case string:
+		return Quote(v)
+	default:
+		panic("argument type not supported")
+	}
+}
 
 // String converts value to string
 func (v ValueString) String() string {
@@ -82,7 +106,7 @@ func (v ValueString) String() string {
 
 // Quote used to quote string values as needed by query
 func (v ValueString) Quote() ValueString {
-	return ValueString(fmt.Sprintf("'%s'", v.String()))
+	return ValueString(fmt.Sprintf(`"%s"`, v))
 }
 
 // Regex used for constructing a regexp expression string
@@ -92,12 +116,12 @@ func (v ValueString) Regex() ValueString {
 
 // StartsWith construct a regexp representing all that start with string
 func (v ValueString) StartsWith() ValueString {
-	return ValueString(fmt.Sprintf("%s.*", v.String())).Regex()
+	return ValueString(fmt.Sprintf("%s.*", v)).Regex()
 }
 
 // EndsWith construct a regexp representing all that end with string
 func (v ValueString) EndsWith() ValueString {
-	return ValueString(fmt.Sprintf(".*%s", v.String())).Regex()
+	return ValueString(fmt.Sprintf(".*%s", v)).Regex()
 }
 
 // Quote used to quote string values as needed by query
