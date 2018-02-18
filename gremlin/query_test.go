@@ -29,10 +29,10 @@ import (
 
 func TestQueryBuilder(t *testing.T) {
 	const key, val = "Type", "host"
-	expected := fmt.Sprintf("G.V().Has('%s', Regex('%s'), '%s', Regex('%s.*'), '%s', Regex('.*%s'))",
+	expected := fmt.Sprintf("G.V().Has('%s', Regex('%s'), '%s', Regex('%s.*'), '%s', Regex('.*%s')).Flows().Sort()",
 		key, val, key, val, key, val)
-	actual := G.V().Has(Quote(key), Regex(val), Quote(key), StartsWith(val), Quote(key), EndsWith(val))
-	if actual.String() != expected {
+	actual := G.V().Has(Quote(key), Regex(val), Quote(key), StartsWith(val), Quote(key), EndsWith(val)).Flows().Sort().String()
+	if actual != expected {
 		t.Errorf("Wrong query,\nexpected: \"%s\",\nactual: \"%s\"", expected, actual)
 	}
 }
