@@ -165,10 +165,7 @@ func (t *Test) limitString(s string) string {
 }
 
 func (c *TestContext) getWholeGraph(t *testing.T, at time.Time) string {
-	gremlin := "G"
-	if !at.IsZero() {
-		gremlin += fmt.Sprintf(".Context(%d)", common.UnixMillis(at))
-	}
+	gremlin := g.G.V().Context(at)
 
 	switch helper.GraphOutputFormat {
 	case "ascii":
@@ -212,11 +209,7 @@ func (c *TestContext) getWholeGraph(t *testing.T, at time.Time) string {
 }
 
 func (c *TestContext) getAllFlows(t *testing.T, at time.Time) string {
-	gremlin := "G"
-	if !at.IsZero() {
-		gremlin += fmt.Sprintf(".Context(%d)", common.UnixMillis(at))
-	}
-	gremlin += ".V().Flows().Sort()"
+	gremlin := g.G.V().Context(at).Flows().Sort()
 
 	flows, err := c.gh.GetFlows(gremlin)
 	if err != nil {
