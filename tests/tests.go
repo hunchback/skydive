@@ -36,6 +36,7 @@ import (
 	gclient "github.com/skydive-project/skydive/api/client"
 	"github.com/skydive-project/skydive/api/types"
 	"github.com/skydive-project/skydive/common"
+	g "github.com/skydive-project/skydive/gremlin"
 	shttp "github.com/skydive-project/skydive/http"
 	"github.com/skydive-project/skydive/logging"
 	"github.com/skydive-project/skydive/tests/helper"
@@ -153,6 +154,14 @@ type Test struct {
 	mode             int
 	checks           []CheckFunction
 	checkContexts    []*CheckContext
+	limitStringMax   int
+}
+
+func (t *Test) limitString(s string) string {
+	if t.limitStringMax == 0 {
+		return s
+	}
+	return fmt.Sprintf("%s ...", s[:t.limitStringMax])
 }
 
 func (c *TestContext) getWholeGraph(t *testing.T, at time.Time) string {
@@ -268,7 +277,7 @@ func RunTest(t *testing.T, test *Test) {
 			}
 
 			if len(nodes) == 0 {
-				return fmt.Errorf("No node matching capture %s, graph: %s", capture.GremlinQuery, context.getWholeGraph(t, time.Now()))
+				return fmt.Errorf("No node matching capture %s, graph: %s", capture.GremlinQuery, test.limitString(context.getWholeGraph(t, time.Now())))
 			}
 
 			for _, node := range nodes {
@@ -279,11 +288,11 @@ func RunTest(t *testing.T, test *Test) {
 
 				captureID, err := node.GetFieldString("Capture.ID")
 				if err != nil {
-					return fmt.Errorf("Node %+v matched the capture but capture is not enabled, graph: %s", node, context.getWholeGraph(t, time.Now()))
+					return fmt.Errorf("Node %+v matched the capture but capture is not enabled, graph: %s", node, test.limitString(context.getWholeGraph(t, time.Now())))
 				}
 
 				if captureID != capture.ID() {
-					return fmt.Errorf("Node %s matches multiple captures, graph: %s", node.ID, context.getWholeGraph(t, time.Now()))
+					return fmt.Errorf("Node %s matches multiple captures, graph: %s", node.ID, test.limitString(context.getWholeGraph(t, time.Now())))
 				}
 			}
 		}
@@ -295,7 +304,7 @@ func RunTest(t *testing.T, test *Test) {
 		g := context.getWholeGraph(t, time.Now())
 		helper.ExecCmds(t, test.tearDownCmds...)
 		context.getSystemState(t)
-		t.Fatalf("Failed to setup captures: %s, graph: %s", err.Error(), g)
+		t.Fatalf("Failed to setup captures: %s, graph: %s", err.Error(), test.limitString(g))
 	}
 
 	retries := test.retries
@@ -315,7 +324,7 @@ func RunTest(t *testing.T, test *Test) {
 			f := context.getAllFlows(t, settleTime)
 			helper.ExecCmds(t, test.tearDownCmds...)
 			context.getSystemState(t)
-			t.Errorf("Test failed to settle: %s, graph: %s, flows: %s", err.Error(), g, f)
+			t.Errorf("Test failed to settle: %s, graph: %s, flows: %s", err.Error(), test.limitString(g), test.limitString(f))
 			return
 		}
 	}
@@ -328,7 +337,7 @@ func RunTest(t *testing.T, test *Test) {
 			f := context.getAllFlows(t, context.setupTime)
 			helper.ExecCmds(t, test.tearDownCmds...)
 			context.getSystemState(t)
-			t.Fatalf("Failed to setup test: %s, graph: %s, flows: %s", err.Error(), g, f)
+			t.Fatalf("Failed to setup test: %s, graph: %s, flows: %s", err.Error(), test.limitString(g), test.limitString(f))
 		}
 	}
 
@@ -357,7 +366,7 @@ func RunTest(t *testing.T, test *Test) {
 			f := checkContext.getAllFlows(t, checkContext.startTime)
 			helper.ExecCmds(t, test.tearDownCmds...)
 			context.getSystemState(t)
-			t.Errorf("Test failed: %s, graph: %s, flows: %s", err.Error(), g, f)
+			t.Errorf("Test failed: %s, graph: %s, flows: %s", err.Error(), test.limitString(g), test.limitString(f))
 			return
 		}
 	}
@@ -381,7 +390,7 @@ func RunTest(t *testing.T, test *Test) {
 			}, retries, time.Second)
 
 			if err != nil {
-				t.Errorf("Failed to replay test: %s, graph: %s, flows: %s", err.Error(), checkContext.getWholeGraph(t, checkContext.time), checkContext.getAllFlows(t, checkContext.time))
+				t.Errorf("Failed to replay test: %s, graph: %s, flows: %s", err.Error(), test.limitString(checkContext.getWholeGraph(t, checkContext.time)), test.limitString(checkContext.getAllFlows(t, checkContext.time)))
 			}
 		}
 	}

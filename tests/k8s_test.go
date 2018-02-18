@@ -101,10 +101,11 @@ func tearDownFromConfigFile(ty, name string) []helper.Cmd {
 
 func testNodeCreation(t *testing.T, setupCmds, tearDownCmds []helper.Cmd, ty, name g.ValueString) {
 	test := &Test{
-		mode:         OneShot,
-		retries:      3,
-		setupCmds:    append(tearDownCmds, setupCmds...),
-		tearDownCmds: tearDownCmds,
+		mode:           OneShot,
+		retries:        3,
+		limitStringMax: 20,
+		setupCmds:      append(tearDownCmds, setupCmds...),
+		tearDownCmds:   tearDownCmds,
 		checks: []CheckFunction{func(c *CheckContext) error {
 			query := g.G.V().Has(g.Quote("Manager"), g.Quote("k8s"), g.Quote("Type"), ty, g.Quote("Name"), name)
 			fmt.Printf("Gremlin Query: %s\n", query)
