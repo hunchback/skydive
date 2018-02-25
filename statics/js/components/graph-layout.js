@@ -1211,11 +1211,40 @@ TopologyGraphLayout.prototype = {
     this.linkLabel = this.linkLabel.data(Object.values(this.linkLabelData), function(d) { return d.id; });
   },
 
+  LinkLabelDriver: function(outer, link) {
+    var self = this;
+    const defaultBandwidthBaseline = 1024 * 1024 * 1024; // 1 gbps
+    this.bandwidth = outer.bandwidth;
+    var bandwidthBaseline = (outer.bandwidth.bandwidthThreshold === 'relative') ?
+      link.target.metadata.Speed || defaultBandwidthBaseline : 1;
+    this.bandwidthAbsolute = outer.bandwidthFromMetrics(link.target.metadata.LastUpdateMetric);
+    this.bandwidthCheck = this.bandwidthAbsolute / bandwidthBaseline;
+
+    this.check = function() {
+      return self.bandwidthCheck > self.bandwidth.active;
+    };
+
+    this.getText = function() {
+      return bandwidthToString(self.bandwidthAbsolute);
+    };
+
+    this.isActive = function() {
+      return (self.bandwidthCheck > self.bandwidth.active) && (self.bandwidthCheck < self.bandwidth.warning);
+    };
+
+    this.isWarning = function() {
+      return (self.bandwidthCheck >= self.bandwidth.warning) && (self.bandwidthCheck < self.bandwidth.alert);
+    };
+
+    this.isAlert = function() {
+      return self.bandwidthCheck >= self.bandwidth.alert;
+    };
+  },
+
   updateLinkLabelData: function() {
     var self = this;
 
     for (var i in this.links) {
-      var bandwidth = this.bandwidth;
       var link = this.links[i];
 
       if (!link.source.visible || !link.target.visible)
@@ -1225,20 +1254,16 @@ TopologyGraphLayout.prototype = {
       if (!link.target.metadata.LastUpdateMetric)
         continue;
 
-      const defaultBandwidthBaseline = 1024 * 1024 * 1024; // 1 gbps
-      var bandwidthBaseline = (bandwidth.bandwidthThreshold === 'relative') ?
-        link.target.metadata.Speed || defaultBandwidthBaseline : 1;
-      var bandwidthAbsolute = this.bandwidthFromMetrics(link.target.metadata.LastUpdateMetric);
-      var bandwidthCheck = bandwidthAbsolute / bandwidthBaseline;
+      var driver = new this.LinkLabelDriver(this, link);
 
-      if (bandwidthCheck > bandwidth.active) {
+      if (driver.check()) {
         this.linkLabelData[link.id] = {
           id: "link-label-" + link.id,
           link: link,
-          text: bandwidthToString(bandwidthAbsolute),
-          active: (bandwidthCheck > bandwidth.active) && (bandwidthCheck < bandwidth.warning),
-          warning: (bandwidthCheck >= bandwidth.warning) && (bandwidthCheck < bandwidth.alert),
-          alert: bandwidthCheck >= bandwidth.alert
+          text: driver.getText(),
+          active: driver.isActive(),
+          warning: driver.isWarning(),
+          alert: driver.isAlert(),
         };
       } else {
         delete this.linkLabelData[link.id];
