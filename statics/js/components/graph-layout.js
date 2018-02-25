@@ -1,3 +1,14 @@
+function bandwidthToString(bps) {
+  const KBPS = 1024, MBPS = 1024*1024, GBPS = 1024*1024*1024;
+  if (bps >= GBPS)
+    return (Math.floor(bps / GBPS)).toString() + " Gbps";
+  if (bps >= MBPS)
+    return (Math.floor(bps / MBPS)).toString() + " Mbps";
+  if (bps >= KBPS)
+    return (Math.floor(bps / KBPS)).toString() + " Kbps";
+  return bps.toString() + " bps";
+}
+
 var TopologyGraphLayout = function(vm, selector) {
   var self = this;
 
