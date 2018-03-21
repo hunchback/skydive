@@ -46,6 +46,22 @@ const indexVersion = 11
 const indexPrefix = "skydive"
 const indexAllAlias = "all"
 
+// ElasticLimits describes index limits driving roll policy
+type ElasticLimits struct {
+	entriesLimit int
+	ageLimit     int
+	indicesLimit int
+}
+
+// NewElasticLimitsFromConfig create new limits from configuration
+func NewElasticLimitsFromConfig(path string) ElasticLimits {
+	limits := ElasticLimits{}
+	limits.entriesLimit = config.GetInt(path + ".index_entries_limit")
+	limits.ageLimit = config.GetInt(path + ".index_age_limit")
+	limits.indicesLimit = config.GetInt(path + ".indices_to_keep")
+	return limits
+}
+
 // ElasticSearchClientInterface describes the mechanism API of ElasticSearch database client
 type ElasticSearchClientInterface interface {
 	FormatFilter(filter *filters.Filter, mapKey string) map[string]interface{}
@@ -62,7 +78,7 @@ type ElasticSearchClientInterface interface {
 	Delete(obj string, id string) (elastigo.BaseResponse, error)
 	BulkDelete(obj string, id string)
 	Search(obj string, query string, index string) (elastigo.SearchResult, error)
-	Start(name string, mappings []map[string][]byte, entriesLimit int, ageLimit int, indicesLimit int)
+	Start(name string, mappings []map[string][]byte, limits ElasticLimits)
 	GetIndexAlias() string
 	GetIndexAllAlias() string
 }
@@ -74,9 +90,7 @@ type ElasticIndex struct {
 	name           string
 	path           string
 	timeCreated    time.Time
-	entriesLimit   int
-	ageLimit       int
-	indicesLimit   int
+	limits         ElasticLimits
 	lock           sync.Mutex
 }
 
@@ -199,13 +213,11 @@ func (c *ElasticSearchClient) createIndex(name string) error {
 
 }
 
-func (c *ElasticSearchClient) start(name string, mappings []map[string][]byte, entriesLimit int, ageLimit int, indicesLimit int) error {
+func (c *ElasticSearchClient) start(name string, mappings []map[string][]byte, limits ElasticLimits) error {
 	c.index = &ElasticIndex{
-		mappings:     mappings,
-		entriesLimit: entriesLimit,
-		ageLimit:     ageLimit,
-		indicesLimit: indicesLimit,
-		lock:         sync.Mutex{},
+		mappings: mappings,
+		limits:   limits,
+		lock:     sync.Mutex{},
 	}
 
 	if err := c.createIndex(name); err != nil {
@@ -362,19 +374,19 @@ func (c *ElasticSearchClient) FormatFilter(filter *filters.Filter, mapKey string
 }
 
 func (c *ElasticSearchClient) shouldRollIndexByCount() bool {
-	if c.index.entriesLimit == 0 {
+	if c.index.limits.entriesLimit == 0 {
 		logging.GetLogger().Debugf("%s entries limit not set", c.index.name)
 		return false
 	}
 	logging.GetLogger().Debugf("%s entries counter is %d", c.index.name, c.index.entriesCounter)
-	if c.index.entriesCounter < c.index.entriesLimit {
+	if c.index.entriesCounter < c.index.limits.entriesLimit {
 		return false
 	}
 	c.indexer.Flush()
 	time.Sleep(3 * time.Millisecond)
 
 	c.index.entriesCounter = c.countEntries()
-	if c.index.entriesCounter < c.index.entriesLimit {
+	if c.index.entriesCounter < c.index.limits.entriesLimit {
 		return false
 	}
 	logging.GetLogger().Debugf("%s enough entries to roll", c.index.name)
@@ -382,13 +394,13 @@ func (c *ElasticSearchClient) shouldRollIndexByCount() bool {
 }
 
 func (c *ElasticSearchClient) shouldRollIndexByAge() bool {
-	if c.index.ageLimit == 0 {
+	if c.index.limits.ageLimit == 0 {
 		logging.GetLogger().Debugf("%s age limit not set", c.index.name)
 		return false
 	}
 	age := int(time.Now().Sub(c.index.timeCreated).Seconds())
 	logging.GetLogger().Debugf("%s age is %d", c.index.name, age)
-	if age < c.index.ageLimit {
+	if age < c.index.limits.ageLimit {
 		return false
 	}
 	logging.GetLogger().Debugf("%s old enough to roll", c.index.name)
@@ -400,7 +412,7 @@ func (c *ElasticSearchClient) shouldRollIndex() bool {
 }
 
 func (c *ElasticSearchClient) delIndices() {
-	if c.index.indicesLimit == 0 {
+	if c.index.limits.indicesLimit == 0 {
 		logging.GetLogger().Debugf("No indices limit specified for %s", c.index.name)
 		return
 	}
@@ -410,7 +422,7 @@ func (c *ElasticSearchClient) delIndices() {
 		return indices[i].Name < indices[j].Name
 	})
 
-	numToDel := len(indices) - c.index.indicesLimit
+	numToDel := len(indices) - c.index.limits.indicesLimit
 	if numToDel <= 0 {
 		return
 	}
@@ -553,12 +565,12 @@ func (c *ElasticSearchClient) errorReader() {
 }
 
 // Start the Elasticsearch client background jobs
-func (c *ElasticSearchClient) Start(name string, mappings []map[string][]byte, entriesLimit int, ageLimit int, indicesLimit int) {
+func (c *ElasticSearchClient) Start(name string, mappings []map[string][]byte, limits ElasticLimits) {
 	c.wg.Add(1)
 	go c.errorReader()
 
 	for {
-		err := c.start(name, mappings, entriesLimit, ageLimit, indicesLimit)
+		err := c.start(name, mappings, limits)
 		if err == nil {
 			break
 		}
