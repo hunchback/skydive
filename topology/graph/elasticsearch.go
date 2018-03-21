@@ -227,6 +227,7 @@ func (b *ElasticSearchBackend) createNode(n *Node) bool {
 	if shouldRoll {
 		if err := b.rollAndDumpTopology(); err != nil {
 			logging.GetLogger().Errorf("Error while dumping topology: %s", err.Error())
+			return false
 		}
 	}
 
@@ -311,6 +312,7 @@ func (b *ElasticSearchBackend) createEdge(e *Edge) bool {
 	if shouldRoll {
 		if err := b.rollAndDumpTopology(); err != nil {
 			logging.GetLogger().Errorf("Error while dumping topology: %s", err.Error())
+			return false
 		}
 	}
 
