@@ -132,25 +132,17 @@ case "$1" in
         uninstall)
                 uninstall
                 ;;
-        reinstall)
-                uninstall
-                install
-                ;;
         start)
                 start
                 ;;
         stop)
                 stop
                 ;;
-        restart)
-                stop
-                start
-                ;;
         status)
                 status
                 ;;
         *)
-                echo "$0 [install|uninstall|reintall|start|stop|restart|status]"
+                echo "$0 [install|uninstall|start|stop|status]"
                 exit 1
                 ;;
 esac
