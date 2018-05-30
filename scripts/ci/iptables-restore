@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# if we recieve an incorrectly formated option (such as "-w5" incorrectly
+# passed by kube-proxy v1.9.4) we fix to the correct form "-w 5" as supported
+# in iptables-restore v1.6.2 and above.
+
+args=()
+while [[ $# -gt 0 ]]; do
+	key="$1"
+	case "$key" in
+		-w?*)
+			args+=("-w")
+			args+=("${key#-w}")
+			;;
+		*)
+			args+=("$key")
+			;;
+	esac
+	shift
+done
+
+xtables-multi iptables-restore "${args[@]}"

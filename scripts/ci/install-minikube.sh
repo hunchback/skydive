@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DIR="$(dirname "$0")"
+
 OS=linux
 ARCH=amd64
 TARGET_DIR=/usr/bin
@@ -7,7 +9,7 @@ TARGET_DIR=/usr/bin
 MINIKUBE_VERSION="v0.25.2"
 MINIKUBE_URL="https://github.com/kubernetes/minikube/releases/download/$MINIKUBE_VERSION/minikube-$OS-$ARCH"
 
-KUBECTL_VERSION="v1.9.0"
+KUBECTL_VERSION="v1.9.4"
 KUBECTL_URL="https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/$OS/$ARCH/kubectl"
 
 export MINIKUBE_WANTUPDATENOTIFICATION=false
@@ -45,7 +47,20 @@ check_minikube() {
         sudo systemctl start docker
 }
 
+patch_iptables() {
+        # HACK HACK HACK: kube-proxy passes iptables-restore flag -w5 which is
+	# ignored in v1.6.1 (FC27) but fails v1.6.2 (FC28). Issue can be found
+	# https://github.com/NixOS/nixpkgs/issues/35544, it's patch has not yet
+	# been released in default kubernetes server used by minikube.
+        . /etc/os-release
+        if [ "$ID" == "fedora" -a "$VERSION_ID" == "28" ]; then
+		sudo rm -rf /usr/local/sbin/iptable-restore
+		sudo cp -f -a -L $DIR/iptable-restore /usr/local/sbin/.
+        fi
+}
+
 install() {
+        patch_iptables
         install_binary minikube $MINIKUBE_URL
         install_binary kubectl $KUBECTL_URL
 }
@@ -59,6 +74,8 @@ stop() {
         check_minikube
 
         sudo -E minikube delete
+        sudo rm -rf /etc/kubernetes
+        sudo rm -rf /var/lib/localkube
         sudo rm -rf $HOME/.minikube $HOME/.kube
         sudo rm -rf /root/.minikube /root/.kube
 
@@ -82,7 +99,6 @@ start() {
         fi
 
         sudo -E minikube start $args
-        sudo -E minikube addons disable dashboard
         minikube status
         kubectl config use-context minikube
 
@@ -91,6 +107,16 @@ start() {
                 sudo rm -rf /root/$i
                 sudo cp -ar $HOME/$i /root/$i
         done
+
+        # check kube-proxy
+        curl -I -k https://10.96.0.1
+        kubectl get services kubernetes
+
+        # check kube-dns
+        kubectl delete pod busybox --grace-period=0 --force
+        kubectl run -i --rm busybox --image=busybox --restart=Never -- \
+                nslookup kubernetes.default
+        kubectl get pods -n kube-system
 }
 
 status() {
@@ -106,17 +132,25 @@ case "$1" in
         uninstall)
                 uninstall
                 ;;
+        reinstall)
+                uninstall
+                install
+                ;;
         start)
                 start
                 ;;
         stop)
                 stop
                 ;;
+        restart)
+                stop
+                start
+                ;;
         status)
                 status
                 ;;
         *)
-                echo "$0 [install|uninstall|start|stop|status]"
+                echo "$0 [install|uninstall|reintall|start|stop|restart|status]"
                 exit 1
                 ;;
 esac
