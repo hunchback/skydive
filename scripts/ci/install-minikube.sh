@@ -54,8 +54,8 @@ patch_iptables() {
 	# been released in default kubernetes server used by minikube.
         . /etc/os-release
         if [ "$ID" == "fedora" -a "$VERSION_ID" == "28" ]; then
-		sudo rm -rf /usr/local/sbin/iptable-restore
-		sudo cp -f -a -L $DIR/iptable-restore /usr/local/sbin/.
+		sudo rm -rf /usr/sbin/iptable-restore
+		sudo cp -f -a -L $DIR/iptables-restore /usr/sbin/.
         fi
 }
 
