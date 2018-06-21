@@ -41,7 +41,7 @@ import (
 
 var (
 	// RollingRate delay between two potential rolling index
-	RollingRate = time.Minute
+	RollingRate = 5 * time.Minute
 
 	rollingRateLock sync.RWMutex
 )

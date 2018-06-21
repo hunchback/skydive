@@ -74,10 +74,10 @@ agent:
     probes:
       - netlink
       - netns
-      - ovsdb
-      - docker
-      - lxd
-      - opencontrail
+      #- ovsdb
+      #- docker
+      #- lxd
+      #- opencontrail
     netlink:
       metrics_update: 5
 

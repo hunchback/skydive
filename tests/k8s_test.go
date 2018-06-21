@@ -82,16 +82,19 @@ func queryNodeCreation(t *testing.T, c *CheckContext, query g.QueryString) (node
 		const expectedNumNodes = 1
 
 		t.Logf("Executing query '%s'", query)
+		fmt.Printf("Executing query '%s'", query)
 		nodes, e := c.gh.GetNodes(query.String())
 		if e != nil {
 			e = fmt.Errorf("Failed executing query '%s': %s", query, e)
 			t.Logf("%s", e)
+			fmt.Printf("%s", e)
 			return e
 		}
 
 		if len(nodes) != expectedNumNodes {
 			e = fmt.Errorf("Ran '%s', expected %d node, got %d nodes: %+v", query, expectedNumNodes, len(nodes), nodes)
 			t.Logf("%s", e)
+			fmt.Printf("%s", e)
 			return e
 		}
 
@@ -275,6 +278,64 @@ func TestHelloNodeScenario(t *testing.T) {
 				if err = checkEdgeCreation(t, c, pod, container, "ownership"); err != nil {
 					return err
 				}
+				return nil
+			},
+		},
+	)
+}
+
+func TestK8sNetworkPolicyScenario1(t *testing.T) {
+	file := "networkpolicy1"
+	name := objName + "-" + file
+	testRunner(
+		t,
+		setupFromConfigFile(file),
+		tearDownFromConfigFile(file),
+		[]CheckFunction{
+			func(c *CheckContext) error {
+				networkpolicy, err := checkNodeCreation(t, c, "networkpolicy", "Name", name)
+				if err != nil {
+					return err
+				}
+
+				namespace, err := checkNodeCreation(t, c, "namespace", "Name", name)
+				if err != nil {
+					return err
+				}
+
+				if err = checkEdgeCreation(t, c, networkpolicy, namespace, "association"); err != nil {
+					return err
+				}
+
+				return nil
+			},
+		},
+	)
+}
+
+func TestK8sNetworkPolicyScenario2(t *testing.T) {
+	file := "networkpolicy2"
+	name := objName + "-" + file
+	testRunner(
+		t,
+		setupFromConfigFile(file),
+		tearDownFromConfigFile(file),
+		[]CheckFunction{
+			func(c *CheckContext) error {
+				networkpolicy, err := checkNodeCreation(t, c, "networkpolicy", "Name", name)
+				if err != nil {
+					return err
+				}
+
+				pod, err := checkNodeCreation(t, c, "pod", "Name", name)
+				if err != nil {
+					return err
+				}
+
+				if err = checkEdgeCreation(t, c, networkpolicy, pod, "association"); err != nil {
+					return err
+				}
+
 				return nil
 			},
 		},
