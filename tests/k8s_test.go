@@ -204,7 +204,7 @@ func TestK8sDaemonSetNode(t *testing.T) {
 }
 
 func TestK8sNetworkPolicyNode(t *testing.T) {
-	testNodeCreationFromConfig(t, "networkpolicy", objName+"-networkpolicy", "Labels", "PodSelector")
+	testNodeCreationFromConfig(t, "networkpolicy", objName+"-networkpolicy")
 }
 
 func TestK8sNodeNode(t *testing.T) {
@@ -404,4 +404,46 @@ func TestK8sNetworkPolicyDenyEgressScenario(t *testing.T) {
 
 func TestK8sNetworkPolicyAllowEgressScenario(t *testing.T) {
 	testK8sNetworkPolicyDefaultScenario(t, k8s.PolicyTypeEgress, k8s.PolicyTargetAllow)
+}
+
+func testK8sNetworkPolicyObjectToObjectScenario(t *testing.T, policyType k8s.PolicyType, policyTarget k8s.PolicyTarget, resourceType string) {
+	file := fmt.Sprintf("networkpolicy-%s-%s-%s", policyType, policyTarget, resourceType)
+	name := objName + "-" + file
+	testRunner(
+		t,
+		setupFromConfigFile(file),
+		tearDownFromConfigFile(file),
+		[]CheckFunction{
+			func(c *CheckContext) error {
+				np, err := checkNodeCreation(t, c, "networkpolicy", "Name", name)
+				if err != nil {
+					return err
+				}
+
+				begin, err := checkNodeCreation(t, c, resourceType, "Name", name+"-begin")
+				if err != nil {
+					return err
+				}
+
+				end, err := checkNodeCreation(t, c, resourceType, "Name", name+"-end")
+				if err != nil {
+					return err
+				}
+
+				if err = checkEdgeNetworkPolicy(t, c, np, begin, "PolicyType", policyType, "PolicyTarget", policyTarget, "PolicyPoint", k8s.PolicyPointBegin); err != nil {
+					return err
+				}
+
+				if err = checkEdgeNetworkPolicy(t, c, np, end, "PolicyType", policyType, "PolicyTarget", policyTarget, "PolicyPoint", k8s.PolicyPointEnd); err != nil {
+					return err
+				}
+
+				return nil
+			},
+		},
+	)
+}
+
+func TestK8sNetworkPolicyAllowIngressPodToPodScenario(t *testing.T) {
+	testK8sNetworkPolicyObjectToObjectScenario(t, k8s.PolicyTypeIngress, k8s.PolicyTargetAllow, "pod")
 }
