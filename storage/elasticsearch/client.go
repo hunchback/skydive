@@ -56,6 +56,7 @@ type Config struct {
 	EntriesLimit int
 	AgeLimit     int
 	IndicesLimit int
+	MaxFields    int
 }
 
 // NewConfig returns a new Config for the given backend name
@@ -76,6 +77,7 @@ func NewConfig(name ...string) Config {
 	cfg.AgeLimit = config.GetInt(path + ".index_age_limit")
 	cfg.IndicesLimit = config.GetInt(path + ".indices_to_keep")
 
+	cfg.MaxFields = config.GetInt(path + ".max_fields")
 	return cfg
 }
 
@@ -156,11 +158,23 @@ func (c *Client) addMapping(index Index) error {
 	return nil
 }
 
+func (c *Client) putSetting(index Index) error {
+	setting := fmt.Sprintf(`{ "index.mapping.total_fields.limit": %d }`, c.cfg.MaxFields)
+	if _, err := c.client.IndexPutSettings().Index(index.FullName()).BodyString(setting).Do(context.Background()); err != nil {
+		return fmt.Errorf("Unable to create %s setting: %s", setting, err)
+	}
+	return nil
+}
+
 func (c *Client) createIndices() error {
 	for _, index := range c.indices {
 		if exists, _ := c.client.IndexExists(index.FullName()).Do(context.Background()); !exists {
 			if _, err := c.client.CreateIndex(index.FullName()).Do(context.Background()); err != nil {
 				return fmt.Errorf("Unable to create the skydive index: %s", err)
+			}
+
+			if err := c.putSetting(index); err != nil {
+				return err
 			}
 
 			if index.Mapping != "" {

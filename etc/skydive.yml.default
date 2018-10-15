@@ -322,6 +322,9 @@ storage:
     # A value of 0 specifies no limit (i.e. indices will never be deleted)
     # indices_to_keep: 0
 
+    # The max number of fields supported. 
+    # max_fields: 1000 
+
   # OrientDB backend information.
   myorientdb:
     # driver: orientdb
