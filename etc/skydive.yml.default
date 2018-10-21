@@ -118,6 +118,12 @@ analyzer:
       # specify the path of k8s configuration YAML file.
       # config_file: /etc/skydive/kubeconfig
 
+      # specify details section; when configuring note that:
+      # - some backends are limitted to a max field count
+      # - slow ui upload may be anticipated with large field count
+      # details_enabled: true
+      # details_max_fields: 100
+
       # list of (sub) probes comprising k8s probe.
       # if list is empty then will resolve to all existing (sub) probes.
       probes:

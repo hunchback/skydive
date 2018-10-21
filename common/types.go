@@ -241,6 +241,10 @@ func NormalizeIPForURL(ip net.IP) string {
 // NormalizeValue returns a version of the passed value
 // that can be safely marshalled to JSON
 func NormalizeValue(obj interface{}) interface{} {
+	ptr := reflect.ValueOf(obj)
+	if !ptr.IsValid() {
+		return ""
+	}
 	if structs.IsStruct(obj) {
 		obj = structs.Map(obj)
 	}
@@ -267,12 +271,49 @@ func NormalizeValue(obj interface{}) interface{} {
 		for i, val := range v {
 			v[i] = NormalizeValue(val)
 		}
-	case string:
-		return v
-	case nil:
-		return ""
 	}
 	return deepcopy.Copy(obj)
+}
+
+// PruneValue returns a version of the passed value that has been pruned to
+// have not more than max fields count
+func PruneValue(obj interface{}, maxFields *int) interface{} {
+	if *maxFields <= 0 {
+		return ""
+	}
+	switch v := obj.(type) {
+	case map[string]interface{}:
+		// to make pruning predictable we must sort
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		m := make(map[string]interface{}, len(v))
+		for _, key := range keys {
+			val := v[key]
+			val = PruneValue(val, maxFields)
+			SetField(m, key, val)
+			if *maxFields == 0 {
+				break
+			}
+		}
+		return m
+	case []interface{}:
+		a := make([]interface{}, len(v))
+		for i, val := range v {
+			val = PruneValue(val, maxFields)
+			a[i] = val
+			if *maxFields == 0 {
+				break
+			}
+		}
+		return a
+	default:
+		*maxFields--
+		return v
+	}
 }
 
 // JSONDecode wrapper to UseNumber during JSON decoding

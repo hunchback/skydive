@@ -24,6 +24,7 @@ package k8s
 
 import (
 	"github.com/skydive-project/skydive/common"
+	"github.com/skydive-project/skydive/config"
 	"github.com/skydive-project/skydive/filters"
 	"github.com/skydive-project/skydive/probe"
 	"github.com/skydive-project/skydive/topology/graph"
@@ -47,8 +48,10 @@ func NewMetadata(manager, ty, details interface{}, name string, namespace ...str
 	}
 	m["Name"] = name
 
-	if details != nil {
-		m[detailsField] = common.NormalizeValue(details)
+	detailsEnabled := config.GetBool("analyzer.topology.k8s.details_enabled")
+	if detailsEnabled && details != nil {
+		maxFields := config.GetInt("analyzer.topology.k8s.details_max_fields")
+		m[detailsField] = common.PruneValue(common.NormalizeValue(details), &maxFields)
 	}
 	return m
 }

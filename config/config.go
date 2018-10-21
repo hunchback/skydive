@@ -44,19 +44,21 @@ var ErrNoAnalyzerSpecified = errors.New("No analyzer specified in the configurat
 var (
 	cfg           *viper.Viper
 	relocationMap = map[string][]string{
-		"agent.auth.api.backend":            {"auth.type"},
-		"agent.auth.cluster.password":       {"auth.analyzer_password"},
-		"agent.auth.cluster.username":       {"auth.analyzer_username"},
-		"agent.capture.stats_update":        {"agent.flow.stats_update"},
-		"analyzer.auth.api.backend":         {"auth.type"},
-		"analyzer.auth.cluster.backend":     {"auth.type"},
-		"analyzer.auth.cluster.password":    {"auth.analyzer_password"},
-		"analyzer.auth.cluster.username":    {"auth.analyzer_username"},
-		"analyzer.flow.backend":             {"analyzer.storage.backend"},
-		"analyzer.flow.max_buffer_size":     {"analyzer.storage.max_flow_buffer_size"},
-		"analyzer.topology.backend":         {"graph.backend"},
-		"analyzer.topology.k8s.config_file": {"k8s.config_file"},
-		"analyzer.topology.k8s.probes":      {"k8s.probes"},
+		"agent.auth.api.backend":                   {"auth.type"},
+		"agent.auth.cluster.password":              {"auth.analyzer_password"},
+		"agent.auth.cluster.username":              {"auth.analyzer_username"},
+		"agent.capture.stats_update":               {"agent.flow.stats_update"},
+		"analyzer.auth.api.backend":                {"auth.type"},
+		"analyzer.auth.cluster.backend":            {"auth.type"},
+		"analyzer.auth.cluster.password":           {"auth.analyzer_password"},
+		"analyzer.auth.cluster.username":           {"auth.analyzer_username"},
+		"analyzer.flow.backend":                    {"analyzer.storage.backend"},
+		"analyzer.flow.max_buffer_size":            {"analyzer.storage.max_flow_buffer_size"},
+		"analyzer.topology.backend":                {"graph.backend"},
+		"analyzer.topology.k8s.config_file":        {"k8s.config_file"},
+		"analyzer.topology.k8s.details_enabled":    {"k8s.details_enabled"},
+		"analyzer.topology.k8s.details_max_fields": {"k8s.details_max_fields"},
+		"analyzer.topology.k8s.probes":             {"k8s.probes"},
 	}
 )
 
@@ -99,6 +101,8 @@ func init() {
 	cfg.SetDefault("analyzer.topology.backend", "memory")
 	cfg.SetDefault("analyzer.topology.probes", []string{})
 	cfg.SetDefault("analyzer.topology.k8s.config_file", "/etc/skydive/kubeconfig")
+	cfg.SetDefault("analyzer.topology.k8s.details_enabled", true)
+	cfg.SetDefault("analyzer.topology.k8s.details_max_fields", 100)
 	cfg.SetDefault("analyzer.topology.istio.config_file", "/etc/skydive/kubeconfig")
 
 	cfg.SetDefault("auth.basic.type", "basic") // defined for backward compatibility
