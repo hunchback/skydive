@@ -37,40 +37,28 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// ResourceHandler is used to map Kubernetes resources to objets in the graph
-type ResourceHandler interface {
-	Map(obj interface{}) (graph.Identifier, graph.Metadata)
-	Dump(obj interface{}) string
-	IsTopLevel() bool
-}
-
-// DefaultResourceHandler defines a default Kubernetes resource handler
-type DefaultResourceHandler struct {
-}
-
-// IsTopLevel returns whether the resource is top level (no parent)
-func (h *DefaultResourceHandler) IsTopLevel() bool {
-	return false
+type k8sHandler interface{
+	OnAdd(obj interface{})
+	OnUpdate(oldObj, newObj interface{})
+	OnDelete(obj interface{})
 }
 
 // ResourceCache describes a cache for a specific kind of Kubernetes resource.
 // It is in charge of listening to Kubernetes events and creating the
 // according resource in the graph with the informations returned by
 // the associated resource handler
-type ResourceCache struct {
-	*graph.EventHandler
+type k8sCache struct {
 	cache          cache.Indexer
 	controller     cache.Controller
 	stopController chan (struct{})
-	handler        ResourceHandler
-	graph          *graph.Graph
+	k8sHandler     k8sHandler
 }
 
-func (c *ResourceCache) list() []interface{} {
+func (c *k8sCache) list() []interface{} {
 	return c.cache.List()
 }
 
-func (c *ResourceCache) getByKey(namespace, name string) interface{} {
+func (c *k8sCache) getByKey(namespace, name string) interface{} {
 	key := ""
 	if len(namespace) > 0 {
 		key = namespace + "/"
@@ -82,7 +70,7 @@ func (c *ResourceCache) getByKey(namespace, name string) interface{} {
 	return nil
 }
 
-func (c *ResourceCache) getByNode(node *graph.Node) interface{} {
+func (c *k8sCache) getByNode(node *graph.Node) interface{} {
 	namespace, _ := node.GetFieldString("Namespace")
 	name, _ := node.GetFieldString("Name")
 	if name == "" {
@@ -91,7 +79,7 @@ func (c *ResourceCache) getByNode(node *graph.Node) interface{} {
 	return c.getByKey(namespace, name)
 }
 
-func (c *ResourceCache) getByNamespace(namespace string) []interface{} {
+func (c *k8sCache) getByNamespace(namespace string) []interface{} {
 	if namespace == api.NamespaceAll {
 		return c.list()
 	}
@@ -100,11 +88,80 @@ func (c *ResourceCache) getByNamespace(namespace string) []interface{} {
 	return objects
 }
 
-func (c *ResourceCache) getBySelector(g *graph.Graph, namespace string, selector *metav1.LabelSelector) []metav1.Object {
+func (c *k8sCache) getBySelector(g *graph.Graph, namespace string, selector *metav1.LabelSelector) []metav1.Object {
 	if objects := c.getByNamespace(namespace); len(objects) > 0 {
 		return filterObjectsBySelector(objects, selector)
 	}
 	return nil
+}
+// Start begin waiting on Kubernetes events
+func (c *k8sCache) Start() {
+	c.cache.Resync()
+	go c.controller.Run(c.stopController)
+}
+
+// Stop end waiting on Kubernetes events
+func (c *k8sCache) Stop() {
+	c.stopController <- struct{}{}
+}
+
+// NewL8sCache returns a new cache using the associed Kubernetes
+// client and with the handler for the resource that this cache manages.
+func NewK8sCache(restClient rest.Interface, objType runtime.Object, resources string, handler ResourceHandler) *K8sCache {
+	watchlist := cache.NewListWatchFromClient(restClient, resources, api.NamespaceAll, fields.Everything())
+
+	c := &K8sCache{
+		EventHandler:   graph.NewEventHandler(100),
+		handler:        handler,
+		stopController: make(chan struct{}),
+	}
+
+	cacheHandler := cache.ResourceEventHandlerFuncs{}
+	if handler != nil {
+		cacheHandler.AddFunc = c.OnAdd
+		cacheHandler.UpdateFunc = c.OnUpdate
+		cacheHandler.DeleteFunc = c.OnDelete
+	}
+
+	indexers := cache.Indexers{"namespace": cache.MetaNamespaceIndexFunc}
+	c.cache, c.controller = cache.NewIndexerInformer(watchlist, objType, 30*time.Minute, cacheHandler, indexers)
+	return c
+}
+
+func matchSelector(obj metav1.Object, selector labels.Selector) bool {
+	return selector.Matches(labels.Set(obj.GetLabels()))
+}
+
+func filterObjectsBySelector(objects []interface{}, labelSelector *metav1.LabelSelector) (out []metav1.Object) {
+	selector, _ := metav1.LabelSelectorAsSelector(labelSelector)
+	for _, obj := range objects {
+		obj := obj.(metav1.Object)
+		if matchSelector(obj, selector) {
+			out = append(out, obj)
+		}
+	}
+	return
+}
+
+// ResourceHandler is used to map Kubernetes resources to objets in the graph
+type ResourceHandler interface {
+	Map(obj interface{}) (graph.Identifier, graph.Metadata)
+	Dump(obj interface{}) string
+}
+
+// DefaultResourceHandler defines a default Kubernetes resource handler
+type DefaultResourceHandler struct {
+}
+
+// IsTopLevel returns whether the resource is top level (no parent)
+func (h *DefaultResourceHandler) IsTopLevel() bool {
+	return false
+}
+
+type ResourceCache struct {
+	*graph.EventHandler
+	graph          *graph.Graph
+	K8sCache       k8sCache
 }
 
 // OnAdd is called when a new Kubernetes resource has been created
@@ -144,52 +201,10 @@ func (c *ResourceCache) OnDelete(obj interface{}) {
 	}
 }
 
-// Start begin waiting on Kubernetes events
-func (c *ResourceCache) Start() {
-	c.cache.Resync()
-	go c.controller.Run(c.stopController)
-}
-
-// Stop end waiting on Kubernetes events
-func (c *ResourceCache) Stop() {
-	c.stopController <- struct{}{}
-}
-
 // NewResourceCache returns a new cache using the associed Kubernetes
 // client and with the handler for the resource that this cache manages.
 func NewResourceCache(restClient rest.Interface, objType runtime.Object, resources string, g *graph.Graph, handler ResourceHandler) *ResourceCache {
-	watchlist := cache.NewListWatchFromClient(restClient, resources, api.NamespaceAll, fields.Everything())
-
-	c := &ResourceCache{
-		EventHandler:   graph.NewEventHandler(100),
-		graph:          g,
-		handler:        handler,
-		stopController: make(chan struct{}),
-	}
-
-	cacheHandler := cache.ResourceEventHandlerFuncs{}
-	if handler != nil {
-		cacheHandler.AddFunc = c.OnAdd
-		cacheHandler.UpdateFunc = c.OnUpdate
-		cacheHandler.DeleteFunc = c.OnDelete
-	}
-
-	indexers := cache.Indexers{"namespace": cache.MetaNamespaceIndexFunc}
-	c.cache, c.controller = cache.NewIndexerInformer(watchlist, objType, 30*time.Minute, cacheHandler, indexers)
+	c := &ResourceCache{graph: g}
+	c.k8sCache = NewK8sCache(restClient, objType, resources, c)
 	return c
-}
-
-func matchSelector(obj metav1.Object, selector labels.Selector) bool {
-	return selector.Matches(labels.Set(obj.GetLabels()))
-}
-
-func filterObjectsBySelector(objects []interface{}, labelSelector *metav1.LabelSelector) (out []metav1.Object) {
-	selector, _ := metav1.LabelSelectorAsSelector(labelSelector)
-	for _, obj := range objects {
-		obj := obj.(metav1.Object)
-		if matchSelector(obj, selector) {
-			out = append(out, obj)
-		}
-	}
-	return
 }
