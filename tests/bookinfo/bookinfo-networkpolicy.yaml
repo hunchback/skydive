@@ -1,0 +1,41 @@
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: allow-productpage-reviews
+spec:
+  podSelector:
+    matchLabels:
+      app: reviews
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app: productpage
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: allow-productpage-details
+spec:
+  podSelector:
+    matchLabels:
+      app: details
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app: productpage
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: allow-reviews-ratings
+spec:
+  podSelector:
+    matchLabels:
+      app: ratings
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app: reviews
