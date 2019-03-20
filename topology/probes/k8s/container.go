@@ -149,7 +149,10 @@ func newPodContainerLinker(g *graph.Graph) probe.Probe {
 
 func newDockerIndexer(g *graph.Graph) *graph.MetadataIndexer {
 	m := graph.NewElementFilter(filters.NewAndFilter(
-		filters.NewTermStringFilter("Manager", "docker"),
+		filters.NewOrFilter(
+			filters.NewTermStringFilter("Manager", "docker"),
+			filters.NewTermStringFilter("Manager", "runc"),
+		),
 		filters.NewTermStringFilter("Type", "container"),
 		filters.NewNotNullFilter(dockerPodNamespaceField),
 		filters.NewNotNullFilter(dockerPodNameField),
@@ -172,7 +175,7 @@ func newContainerDockerLinker(g *graph.Graph) probe.Probe {
 	dockerIndexer := newDockerIndexer(g)
 	dockerIndexer.Start()
 
-	ml := graph.NewMetadataIndexerLinker(g, containerIndexer, dockerIndexer, NewEdgeMetadata(Manager, "association"))
+	ml := graph.NewMetadataIndexerLinker(g, containerIndexer, dockerIndexer, NewEdgeMetadata(Manager, "container"))
 
 	linker := &Linker{
 		ResourceLinker: ml.ResourceLinker,
