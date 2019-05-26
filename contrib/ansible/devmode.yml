@@ -7,5 +7,10 @@
   - shell: setenforce 0
   roles:
   - role: elasticsearch
+    tags: elasticsearch
   - role: orientdb
+    tags: orientdb
+  - role: objectstore
+    tags: objectstore
   - role: skydive_dev
+    tags: skydive_dev

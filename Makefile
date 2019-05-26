@@ -195,6 +195,10 @@ ifeq ($(WITH_VPP), true)
   AGENT_TEST_EXTRA_PROBES+=vpp
 endif
 
+ifeq ($(WITH_SA), true)
+  BUILD_TAGS+=sa
+endif
+
 comma:= ,
 empty:=
 space:= $(empty) $(empty)
