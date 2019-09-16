@@ -61,6 +61,8 @@ type SecurityAdvisorFlowLayer struct {
 // SecurityAdvisorFlow represents a security advisor flow
 type SecurityAdvisorFlow struct {
 	UUID             string                    `json:"UUID,omitempty"`
+	l2TrackingID     string
+	linkID           string
 	LayersPath       string                    `json:"LayersPath,omitempty"`
 	Version          string                    `json:"Version,omitempty"`
 	Status           string                    `json:"Status,omitempty"`
@@ -73,6 +75,7 @@ type SecurityAdvisorFlow struct {
 	Last             int64                     `json:"Last"`
 	UpdateCount      int64                     `json:"UpdateCount"`
 	NodeType         string                    `json:"NodeType,omitempty"`
+	Action           string                    `json:"Action",omitempty`
 	LogStatus        string                    `json:"LogStatus",omitempty`
 }
 
@@ -156,6 +159,13 @@ func (ft *securityAdvisorFlowTransformer) getTransport(f *flow.Flow) *SecurityAd
 	}
 }
 
+func (ft *securityAdvisorFlowTransformer) getLinkID(f *flow.Flow) int64 {
+	if f.Link == nil {
+		return 0
+	}
+	return f.Link.ID
+}
+
 // Transform transforms a flow before being stored
 func (ft *securityAdvisorFlowTransformer) Transform(f *flow.Flow) interface{} {
 
@@ -171,6 +181,8 @@ func (ft *securityAdvisorFlowTransformer) Transform(f *flow.Flow) interface{} {
 
 	return &SecurityAdvisorFlow{
 		UUID:             f.UUID,
+		l3trackingID:     f.L3TrackingID,
+		linkID:           f.getLinkID(f),
 		LayersPath:       f.LayersPath,
 		Version:          version,
 		Status:           status,

@@ -15,22 +15,34 @@
  *
  */
 
-package main
+package mod
 
 import (
-	"github.com/skydive-project/skydive/contrib/exporters/core"
+	"time"
+
+	cache "github.com/pmylund/go-cache"
+	"github.com/spf13/viper"
+
+	"github.com/skydive-project/skydive/common"
 	awsflowlogs "github.com/skydive-project/skydive/contrib/exporters/awsflowlogs/mod"
-	secadvisor "github.com/skydive-project/skydive/contrib/exporters/secadvisor/mod"
+	"github.com/skydive-project/skydive/flow"
 )
 
-func main() {
-	core.Main("/etc/skydive/secadvisor.yml")
+type mangleAction struct {
+	logStatus mangleLogStatus
+	action mangleAction
 }
 
-func init() {
-	core.ManglerHandlers.Register("action", awsflowlogs.NewMangleAction, false)
-	core.ManglerHandlers.Register("logstatus", awsflowlogs.NewMangleLogStatus, false)
-	core.ManglerHandlers.Register("action+logstatus", awsflowlogs.NewMangle, false)
-	core.EncoderHandlers.Register("secadvisor", secadvisor.NewEncode, true)
-	core.TransformerHandlers.Register("secadvisor", secadvisor.NewTransform, false)
+// Mangle action
+func (m *mangle) Mangle(in []interface{}) (out []interface{}) {
+	out := mangleLogStatus(in)
+	return mangleAction(out)
+}
+
+// NewMangleAction create a new mangle
+func NewMangle(cfg *viper.Viper) (interface{}, error) {
+	return &mangleAction{
+		logStatus: NewMangleLogStatus(cfg)
+		action: NewMangleAction(cfg)
+	}, nil
 }
