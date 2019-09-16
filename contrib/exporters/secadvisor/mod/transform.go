@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	awsflowlogs "github.com/skydive-project/skydive/contrib/exporters/awsflowlogs/mod"
 	"github.com/skydive-project/skydive/contrib/exporters/core"
 	"github.com/skydive-project/skydive/flow"
 )
@@ -72,6 +73,7 @@ type SecurityAdvisorFlow struct {
 	Last             int64                     `json:"Last"`
 	UpdateCount      int64                     `json:"UpdateCount"`
 	NodeType         string                    `json:"NodeType,omitempty"`
+	LogStatus        string                    `json:"LogStatus",omitempty`
 }
 
 // SecurityAdvisorFlowTransformer is a custom transformer for flows
